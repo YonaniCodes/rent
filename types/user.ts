@@ -7,3 +7,15 @@ export type CreateUserPayload = {
   auth_date: string | number;
   hash: string;
 };
+
+export type UserType = {
+  id: string;
+  name: string;
+  emailVerified: boolean;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+  image?: string | null | undefined | undefined;
+  role: string;
+  username?: string | null | undefined;
+};
