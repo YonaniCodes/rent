@@ -1,18 +1,15 @@
-import PropertyCardRoot from "./PropertyCardRoot";
-import PropertyCardImage from "./PropertyCardImage";
-import PropertyCardBadges from "./PropertyCardBadges";
-import PropertyCardInfo from "./PropertyCardInfo";
-import PropertyCardListedBy from "./PropertyCardListedBy";
-import PropertyCardActions from "./PropertyCardActions";
+import PropertyCardRoot from "./Root";
+import PropertyCardImages from "./Images";
+import PropertyCardBadges from "./Badges";
+import PropertyCardInfo from "./Info";
+import OwnerStamp from "./OwnerStamp";
 
 // Create the compound component with proper typing
 const PropertyCard = Object.assign(PropertyCardRoot, {
-  Image: PropertyCardImage,
+  Images: PropertyCardImages,
   Badges: PropertyCardBadges,
   Info: PropertyCardInfo,
-  ListedBy: PropertyCardListedBy,
-  Actions: PropertyCardActions,
+  OwnerStamp,
 });
 
 export default PropertyCard;
-export type { Property, ListedBy } from "./types";

@@ -1,26 +1,7 @@
-export interface ListedBy {
-  role: "agent" | "landlord" | "real_estate";
-  name: string;
-  logo?: string;
-  verified: boolean;
-}
-
-export interface Property {
-  id: number;
-  title: string;
-  price: string;
-  bedrooms: number;
-  bathrooms: number;
-  location: string;
-  images: string[];
-  listedBy: ListedBy;
-  status?: string;
-  daysOnMarket?: number;
-  area?: string;
-}
+import { Home } from "@/types/home";
 
 export interface PropertyCardProps {
-  property?: Property;
+  home?: Home;
   children: React.ReactNode;
   className?: string;
   onLike?: (propertyId: number, isLiked: boolean) => void;
@@ -28,7 +9,7 @@ export interface PropertyCardProps {
 }
 
 export interface PropertyCardChildProps {
-  property: Property;
+  home: Home;
   className?: string;
   onLike?: (propertyId: number, isLiked: boolean) => void;
   isLiked?: boolean;

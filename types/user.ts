@@ -19,3 +19,8 @@ export type UserType = {
   role: string;
   username?: string | null | undefined;
 };
+
+export type UserSyncPayload = {
+  telegram_id: string;
+  role: "user" | "admin" | "landlord" | "agent"; // expand as needed
+};

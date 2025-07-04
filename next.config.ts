@@ -9,6 +9,16 @@ const nextConfig: NextConfig = {
         hostname: "t.me",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "photos.zillowstatic.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "ayatrealestate.com",
+        pathname: "/**",
+      },
     ],
   },
 };
