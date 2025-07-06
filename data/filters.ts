@@ -7,7 +7,7 @@ export const selectFilters = [
     options: [
       { value: "all", label: "Any Status" },
       { value: "for sale", label: "For Sale" },
-      { value: " for rent", label: "For Rent" },
+      { value: "for rent", label: "For Rent" },
       { value: "sold", label: "Sold" },
     ],
   },

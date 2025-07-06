@@ -15,7 +15,7 @@ export default function HomeList({
   return (
     <div
       className={`
-      // ${view === "list" ? "block" : "hidden"} 
+      ${view === "list" ? "block" : "hidden"} 
       lg:block 
       w-full lg:w-2/3
     `}

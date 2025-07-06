@@ -6,13 +6,15 @@ import MapListController from "./MapListController";
 import { Home } from "@/types/home";
 
 export default function MapAndList({ homes }: { homes: Home[] }) {
-  const [view, setView] = useState<"map" | "list">("list"); // default view
+  const [view, setView] = useState<"map" | "list">("list");
 
   return (
-    <div className="flex mt-4 flex-col lg:flex-row gap-4 min-h-[calc(100vh-120px)]">
+    <div className="flex flex-col lg:flex-row gap-4 min-h-[calc(100vh-120px)]">
       <MapView homes={homes} view={view} />
       <HomeList view={view} homes={homes} />
-      <MapListController view={view} setView={setView} />
+      <div className="lg:hidden">
+        <MapListController view={view} setView={setView} />
+      </div>
     </div>
   );
 }

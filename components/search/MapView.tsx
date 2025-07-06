@@ -63,7 +63,7 @@ export default function MapView({
           <ChangeCenter position={initialCenter} />
         </MapContainer>
 
-        <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg z-[1000]">
+        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg z-[1000]">
           <p className="text-sm font-medium">{homes.length} homes in view</p>
         </div>
       </div>

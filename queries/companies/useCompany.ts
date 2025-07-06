@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import supabaseClient from "@/db/supabase";
-import { authClient } from "@/lib/auth-client";
+
 import { getUserIdFromSession } from "@/utils/session-utils";
 
 type Company = {
@@ -17,7 +17,7 @@ type ProfileWithCompany = {
 };
 
 const getProfileByTelegramId = async (): Promise<ProfileWithCompany> => {
-  const telegram_id = getUserIdFromSession();
+  const telegram_id = await getUserIdFromSession();
   const { data, error } = await supabaseClient
     .from("profiles")
     .select(
@@ -35,7 +35,10 @@ const getProfileByTelegramId = async (): Promise<ProfileWithCompany> => {
     .eq("telegram_id", telegram_id)
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.log(error);
+    throw error;
+  }
 
   return data;
 };
