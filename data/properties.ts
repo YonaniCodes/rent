@@ -104,6 +104,9 @@ export function generateProperties(
       pets_allowed: Math.random() < 0.5,
       amenities: "WiFi, Parking",
       utilities: { water: "included", electricity: "included" },
+      is_furnished: Math.random() < 0.5,
+      floor: Math.random() < 10,
+      year_built: "1999",
     });
   }
 

@@ -19,7 +19,7 @@ const UserProfile = async () => {
   return (
     <>
       <div>
-        {user.role == "agent" && (
+        {(user.role + " " == "agent" || "landlord" || "admin") && (
           <Link href="/dashboard">
             <Button className="hidden sm:inline-flex gap-2">
               <LayoutDashboard className="w-4 h-4" />

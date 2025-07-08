@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { useAddProperties } from "@/queries/properties/useAddProperties";
+import { useAddHomes } from "@/queries/properties/useAddHomes";
 import { generateProperties } from "./properties";
 
 export default function Uploader() {
-  const { isPending, addTasks } = useAddProperties("721748418");
+  const { isPending, addHome } = useAddHomes();
   if (isPending) return <h1>Hello world</h1>;
   return (
     <Button
@@ -11,9 +11,8 @@ export default function Uploader() {
         console.log("cliecked");
         const properties = generateProperties(3, "721748418");
         console.log(properties);
-        addTasks({
-          properties,
-          telegram_id: "721748418",
+        addHome({
+          home: properties,
         });
       }}
       disabled={isPending}

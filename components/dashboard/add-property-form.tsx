@@ -1,784 +1,628 @@
-import React, { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+"use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Form } from "@/components/ui/form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+
+import { z } from "zod";
+import { TextInput } from "@/components/forms/text-input";
+import { SelectInput } from "@/components/forms/select-input";
+import { CheckboxInput } from "@/components/forms/check-box";
 import {
-  Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/context/AuthContext";
-import {
-  Building,
+  Home,
   MapPin,
   DollarSign,
-  Home,
-  Bed,
-  Bath,
-  Maximize,
   Camera,
-  Navigation,
+  Shield,
+  Wifi,
+  Zap,
+  Droplets,
+  Settings,
+  Upload,
+  X,
 } from "lucide-react";
 
-const propertySchema = z.object({
-  title: z.string().min(5, "Title must be at least 5 characters"),
-  description: z.string().min(20, "Description must be at least 20 characters"),
-  listingType: z.enum(["sale", "rent"], {
-    required_error: "Please select listing type",
-  }),
-  price: z.number().min(1, "Price must be greater than 0"),
-  location: z.string().min(5, "Location is required"),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-  type: z.enum(["apartment", "house", "condo", "studio"], {
-    required_error: "Please select property type",
-  }),
-  bedrooms: z.number().min(0, "Bedrooms cannot be negative"),
-  bathrooms: z.number().min(0.5, "Must have at least 0.5 bathrooms"),
-  area: z.number().min(1, "Area must be greater than 0"),
-  features: z.array(z.string()).optional(),
-  furnished: z.boolean().optional(),
-  petFriendly: z.boolean().optional(),
-  parking: z.boolean().optional(),
-  garden: z.boolean().optional(),
-  balcony: z.boolean().optional(),
-  heating: z.string().optional(),
-  cooling: z.string().optional(),
-  flooring: z.string().optional(),
-  yearBuilt: z.number().optional(),
-  availableFrom: z.string().optional(),
-  leaseTerm: z.string().optional(),
-});
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { toast } from "sonner";
+import { getUserIdFromSession } from "@/utils/session-utils";
+import { uploadImagesToCloudinary } from "@/utils/cloudinary";
+import { useAddHomes } from "@/queries/properties/useAddHomes";
 
-type PropertyFormData = z.infer<typeof propertySchema>;
-
-const propertyFeatures = [
-  "Air Conditioning",
-  "Heating",
-  "Fireplace",
-  "Hardwood Floors",
-  "Carpet",
-  "Tile Floors",
-  "Updated Kitchen",
-  "Stainless Steel Appliances",
-  "Granite Countertops",
-  "Walk-in Closet",
-  "Laundry In-Unit",
-  "Dishwasher",
-  "Microwave",
-  "Refrigerator",
-  "Oven/Range",
-  "Garbage Disposal",
-  "High-Speed Internet",
-  "Cable Ready",
-  "Security System",
-  "Intercom",
-  "Elevator",
-  "Wheelchair Accessible",
-  "Swimming Pool",
-  "Gym/Fitness Center",
-  "Rooftop Deck",
-  "Courtyard",
-  "Storage Unit",
-  "Bike Storage",
+// Essential options only
+const propertyTypeOptions = [
+  { value: "apartment", label: "Apartment" },
+  { value: "house", label: "House" },
+  { value: "condo", label: "Condo" },
+  { value: "townhouse", label: "Townhouse" },
 ];
 
-const AddPropertyForm = () => {
-  const { user } = useAuth();
-  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
-  const [images, setImages] = useState<FileList | null>(null);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [locationConfirmed, setLocationConfirmed] = useState(false);
-  const [detectedLocation, setDetectedLocation] = useState<string>("");
-  const [vpnDetected, setVpnDetected] = useState(false);
+const propertyStatusOptions = [
+  { value: "for sale", label: "For Sale" },
+  { value: "for rent", label: "For Rent" },
+];
 
-  const form = useForm<PropertyFormData>({
-    resolver: zodResolver(propertySchema),
+const currencyOptions = [
+  { value: "ETB", label: "ETB" },
+  { value: "USD", label: "USD" },
+];
+
+const utilityPaymentOptions = [
+  { value: "included", label: "Included in Rent" },
+  { value: "excluded", label: "Tenant Pays Separately" },
+];
+
+// Common amenities for easy selection
+const commonAmenities = [
+  "Parking",
+  "Balcony",
+  "Elevator",
+  "Security",
+  "Swimming Pool",
+  "Gym",
+  "Garden",
+  "Air Conditioning",
+  "Furnished",
+  "Internet",
+];
+
+// Streamlined schema with file uploads
+const PropertyFormSchema = z.object({
+  title: z.string().min(5, "Title must be at least 5 characters"),
+  description: z.string().min(20, "Description must be at least 20 characters"),
+  type: z.enum(["apartment", "house", "condo", "townhouse"]),
+  status: z.enum(["for sale", "for rent"]),
+  address: z.string().min(5, "Address is required"),
+  city: z.string().min(2, "City is required"),
+  price: z.number().min(1, "Price must be greater than 0"),
+  currency: z.enum(["ETB", "USD"]),
+  bedrooms: z.number().min(0, "Bedrooms cannot be negative"),
+  bathrooms: z.number().min(0, "Bathrooms cannot be negative"),
+  area: z.string().min(1, "Area is required"),
+  pets_allowed: z.boolean(),
+  home_rules: z.string().max(1000, "Too long").optional(),
+  amenities: z.array(z.string()),
+  utilities: z
+    .object({
+      water: z.enum(["included", "excluded"]).optional(),
+      electricity: z.enum(["included", "excluded"]).optional(),
+      internet: z.enum(["included", "excluded"]).optional(),
+      gas: z.enum(["included", "excluded"]).optional(),
+    })
+    .optional(),
+  images: z.array(z.any()).max(6, "Maximum 6 images allowed"),
+});
+
+type PropertyFormValues = z.infer<typeof PropertyFormSchema>;
+
+const Index = () => {
+  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const { isPending, addHome } = useAddHomes();
+
+  const form = useForm<PropertyFormValues>({
+    resolver: zodResolver(PropertyFormSchema),
     defaultValues: {
-      listingType: "rent",
+      title: "",
+      description: "",
+      type: "apartment",
+      status: "for sale",
+      address: "",
+      city: "",
+      price: 0,
+      currency: "ETB",
       bedrooms: 1,
       bathrooms: 1,
-      area: 500,
-      features: [],
-      furnished: false,
-      petFriendly: false,
-      parking: false,
-      garden: false,
-      balcony: false,
+      area: "",
+      pets_allowed: false,
+      amenities: [],
+      utilities: {
+        water: undefined,
+        electricity: undefined,
+        internet: undefined,
+        gas: undefined,
+      },
+      images: [],
+      home_rules: "",
     },
   });
 
-  const watchListingType = form.watch("listingType");
+  const selectedAmenities = form.watch("amenities");
 
-  // Check for VPN and get location
-  const checkVPNAndGetLocation = async () => {
-    try {
-      setIsGettingLocation(true);
-
-      // Check for VPN using IP geolocation service
-      const ipResponse = await fetch("https://ipapi.co/json/");
-      const ipData = await ipResponse.json();
-
-      if (
-        ipData.error ||
-        ipData.org?.toLowerCase().includes("vpn") ||
-        ipData.org?.toLowerCase().includes("proxy")
-      ) {
-        setVpnDetected(true);
-        toast({
-          title: "VPN Detected",
-          description: "Please disable your VPN to use location services.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Get user's current location
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-
-            // Reverse geocode to get address
-            try {
-              const response = await fetch(
-                `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=YOUR_API_KEY&limit=1`
-              );
-              const data = await response.json();
-
-              if (data.results && data.results[0]) {
-                const address = data.results[0].formatted;
-                setDetectedLocation(address);
-                form.setValue("location", address);
-                form.setValue("latitude", latitude);
-                form.setValue("longitude", longitude);
-
-                toast({
-                  title: "Location Detected",
-                  description:
-                    "Please confirm if this is the correct location for your property.",
-                });
-              }
-            } catch (error) {
-              console.error("Geocoding error:", error);
-              // Fallback to basic location info
-              const basicLocation = `${latitude.toFixed(
-                4
-              )}, ${longitude.toFixed(4)}`;
-              setDetectedLocation(basicLocation);
-              form.setValue("location", basicLocation);
-              form.setValue("latitude", latitude);
-              form.setValue("longitude", longitude);
-            }
-          },
-          (error) => {
-            console.error("Geolocation error:", error);
-            toast({
-              title: "Location Access Denied",
-              description:
-                "Please enable location access or enter address manually.",
-              variant: "destructive",
-            });
-          }
-        );
-      } else {
-        toast({
-          title: "Geolocation Not Supported",
-          description: "Your browser doesn't support location services.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Location service error:", error);
-      toast({
-        title: "Location Service Error",
-        description: "Please enter your address manually.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGettingLocation(false);
+  const toggleAmenity = (amenity: string) => {
+    const currentAmenities = form.getValues("amenities");
+    if (currentAmenities.includes(amenity)) {
+      form.setValue(
+        "amenities",
+        currentAmenities.filter((a) => a !== amenity)
+      );
+    } else {
+      form.setValue("amenities", [...currentAmenities, amenity]);
     }
   };
 
-  const handleFeatureChange = (feature: string, checked: boolean) => {
-    setSelectedFeatures((prev) =>
-      checked ? [...prev, feature] : prev.filter((f) => f !== feature)
-    );
-    form.setValue(
-      "features",
-      checked
-        ? [...selectedFeatures, feature]
-        : selectedFeatures.filter((f) => f !== feature)
-    );
-  };
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const totalImages = uploadedImages.length + files.length;
 
-  const onSubmit = (data: PropertyFormData) => {
-    if (vpnDetected) {
-      toast({
-        title: "VPN Detected",
-        description: "Please disable your VPN before submitting.",
-        variant: "destructive",
-      });
+    if (totalImages > 6) {
+      toast(
+        "You can only upload a maximum of 6 images. Please remove some images before uploading more"
+      );
       return;
     }
 
-    console.log("Property data:", {
-      ...data,
-      features: selectedFeatures,
-      images,
-    });
-
-    toast({
-      title: "Property Added Successfully!",
-      description: `Your property has been submitted for ${data.listingType}.`,
-    });
-
-    // Reset form
-    form.reset();
-    setSelectedFeatures([]);
-    setImages(null);
-    setLocationConfirmed(false);
-    setDetectedLocation("");
+    setUploadedImages((prev) => [...prev, ...files]);
+    form.setValue("images", [...uploadedImages, ...files]);
   };
 
+  const removeImage = (index: number) => {
+    const newImages = uploadedImages.filter((_, i) => i !== index);
+    setUploadedImages(newImages);
+    form.setValue("images", newImages);
+  };
+
+  async function onSubmit(home: PropertyFormValues) {
+    try {
+      const urls = await uploadImagesToCloudinary(home.images); // File[] → string[]
+
+      const owner_id = await getUserIdFromSession();
+      const transformedUtilities: Record<string, string> = {};
+      if (home.utilities) {
+        for (const [key, value] of Object.entries(home.utilities)) {
+          if (value !== undefined) {
+            transformedUtilities[key] = value;
+          }
+        }
+      }
+      const homeRulesArray = home.home_rules
+        ? home.home_rules
+            .split(/[\n,]+/) // split by newline or comma (one or more)
+            .map((rule) => rule.trim())
+            .filter(Boolean) // remove empty strings
+        : [];
+      console.log(owner_id);
+      const payload = {
+        ...home,
+        images: urls,
+        owner_id,
+        lat: 0, // replace with real location if you support that
+        lng: 0,
+        utilities: transformedUtilities,
+        home_rules: homeRulesArray,
+        is_available: true,
+        is_verified: false,
+        is_price_reduced: false,
+      };
+
+      addHome({ home: payload }); // ⬅️ send complete HomeForm
+      toast.success("Property Submitted Successfully!");
+    } catch (error) {
+      console.error("Upload failed", error);
+      toast.error("Failed to create property. Try again.");
+    }
+  }
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5" />
-              Basic Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Property Title</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="e.g., Beautiful 2BR Apartment"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-4">
+            <Home className="h-8 w-8 text-blue-600 mr-3" />
+            <h1 className="text-3xl font-bold text-gray-900">
+              Property Listing Form
+            </h1>
+          </div>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Create a stunning property listing in minutes. Fill out the
+            essential details to showcase your property to potential buyers or
+            renters.
+          </p>
+        </div>
 
-              <FormField
-                control={form.control}
-                name="listingType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Listing Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select listing type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="rent">For Rent</SelectItem>
-                        <SelectItem value="sale">For Sale</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="max-w-4xl mx-auto space-y-8"
+          >
+            {/* Basic Information Card */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm p-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-xl text-gray-800">
+                  <Home className="h-5 w-5 mr-2 text-blue-600" />
+                  Basic Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <TextInput
+                  control={form.control}
+                  name="title"
+                  label="Property Title"
+                  placeholder="Modern 2-Bedroom Apartment in Bole"
+                />
 
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Property Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select property type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="apartment">Apartment</SelectItem>
-                        <SelectItem value="house">House</SelectItem>
-                        <SelectItem value="condo">Condo</SelectItem>
-                        <SelectItem value="studio">Studio</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Describe your property, its features, and what makes it special..."
-                      className="min-h-[100px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Location & Pricing */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Location & Pricing
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={checkVPNAndGetLocation}
-                  disabled={isGettingLocation || vpnDetected}
-                  className="flex items-center gap-2"
-                >
-                  <Navigation className="h-4 w-4" />
-                  {isGettingLocation
-                    ? "Getting Location..."
-                    : "Use My Location"}
-                </Button>
-                {vpnDetected && (
-                  <span className="text-sm text-red-600">
-                    VPN detected - please disable to use location
-                  </span>
-                )}
-              </div>
-
-              {detectedLocation && !locationConfirmed && (
-                <div className="bg-blue-50 p-4 rounded-lg border">
-                  <p className="text-sm font-medium mb-2">Detected Location:</p>
-                  <p className="text-sm text-gray-700 mb-3">
-                    {detectedLocation}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => setLocationConfirmed(true)}
-                    >
-                      Confirm Location
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setDetectedLocation("");
-                        form.setValue("location", "");
-                      }}
-                    >
-                      Enter Manually
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Property Address</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="e.g., 123 Main St, City, State, ZIP"
-                        {...field}
-                        disabled={detectedLocation && !locationConfirmed}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      {watchListingType === "rent"
-                        ? "Monthly Rent ($)"
-                        : "Sale Price ($)"}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder={
-                          watchListingType === "rent"
-                            ? "e.g., 1500"
-                            : "e.g., 250000"
-                        }
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Property Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Home className="h-5 w-5" />
-              Property Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <FormField
-                control={form.control}
-                name="bedrooms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2">
-                      <Bed className="h-4 w-4" />
-                      Bedrooms
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="bathrooms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2">
-                      <Bath className="h-4 w-4" />
-                      Bathrooms
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.5"
-                        min="0.5"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="area"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2">
-                      <Maximize className="h-4 w-4" />
-                      Area (sq ft)
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="yearBuilt"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Year Built</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="e.g., 2020"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(
-                            e.target.value ? Number(e.target.value) : undefined
-                          )
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {watchListingType === "rent" && (
                 <FormField
                   control={form.control}
-                  name="availableFrom"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Available From</FormLabel>
+                      <FormLabel className="text-sm font-medium text-gray-700">
+                        Description
+                      </FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <Textarea
+                          placeholder="Describe your property's best features, location benefits, and what makes it special..."
+                          className="min-h-[120px] border-gray-200 focus:border-blue-500 focus:ring-blue-500 resize-none"
+                          {...field}
+                        />
                       </FormControl>
+                      <FormDescription className="text-xs text-gray-500">
+                        Write a compelling description that highlights your
+                        property&apos; unique features
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )}
-            </div>
 
-            {watchListingType === "rent" && (
-              <FormField
-                control={form.control}
-                name="leaseTerm"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Lease Term</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select lease term" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="month-to-month">
-                          Month-to-Month
-                        </SelectItem>
-                        <SelectItem value="6-months">6 Months</SelectItem>
-                        <SelectItem value="1-year">1 Year</SelectItem>
-                        <SelectItem value="2-years">2 Years</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-          </CardContent>
-        </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <SelectInput
+                    control={form.control}
+                    name="type"
+                    label="Property Type"
+                    placeholder="Select property type"
+                    options={propertyTypeOptions}
+                  />
+                  <SelectInput
+                    control={form.control}
+                    name="status"
+                    label="Listing Status"
+                    placeholder="Select status"
+                    options={propertyStatusOptions}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Property Features */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Property Features</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Quick toggles */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <FormField
-                control={form.control}
-                name="furnished"
-                render={({ field }) => (
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Furnished</FormLabel>
-                  </FormItem>
-                )}
-              />
+            {/* Location Card */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm p-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-xl text-gray-800">
+                  <MapPin className="h-5 w-5 mr-2 text-green-600" />
+                  Location Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <TextInput
+                  control={form.control}
+                  name="address"
+                  label="Full Address"
+                  placeholder="123 Bole Road, near Edna Mall"
+                />
+                <TextInput
+                  control={form.control}
+                  name="city"
+                  label="City"
+                  placeholder="Addis Ababa"
+                />
+              </CardContent>
+            </Card>
 
-              <FormField
-                control={form.control}
-                name="petFriendly"
-                render={({ field }) => (
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Pet Friendly</FormLabel>
-                  </FormItem>
-                )}
-              />
+            {/* Pricing & Details Card */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm  p-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-xl text-gray-800">
+                  <DollarSign className="h-5 w-5 mr-2 text-emerald-600" />
+                  Pricing & Property Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <TextInput
+                    control={form.control}
+                    name="price"
+                    label="Price"
+                    type="number"
+                    placeholder="50000"
+                  />
+                  <SelectInput
+                    control={form.control}
+                    name="currency"
+                    label="Currency"
+                    placeholder="Select currency"
+                    options={currencyOptions}
+                  />
+                </div>
 
-              <FormField
-                control={form.control}
-                name="parking"
-                render={({ field }) => (
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Parking</FormLabel>
-                  </FormItem>
-                )}
-              />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <TextInput
+                    control={form.control}
+                    name="bedrooms"
+                    label="Bedrooms"
+                    type="number"
+                    placeholder="2"
+                  />
+                  <TextInput
+                    control={form.control}
+                    name="bathrooms"
+                    label="Bathrooms"
+                    type="number"
+                    placeholder="2"
+                  />
+                  <TextInput
+                    control={form.control}
+                    name="area"
+                    label="Area"
+                    placeholder="120 sqm"
+                  />
+                </div>
 
-              <FormField
-                control={form.control}
-                name="garden"
-                render={({ field }) => (
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Garden</FormLabel>
-                  </FormItem>
-                )}
-              />
+                <div className="pt-4">
+                  <CheckboxInput
+                    control={form.control}
+                    name="pets_allowed"
+                    label="Pets Allowed"
+                    description="Pets are welcome in this property"
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-              <FormField
-                control={form.control}
-                name="balcony"
-                render={({ field }) => (
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Balcony</FormLabel>
-                  </FormItem>
-                )}
-              />
-            </div>
+            {/* Amenities Card */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm  p-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-xl text-gray-800">
+                  <Settings className="h-5 w-5 mr-2 text-orange-600" />
+                  Amenities & Features
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="amenities"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">
+                        Select Available Amenities
+                      </FormLabel>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
+                        {commonAmenities.map((amenity) => (
+                          <div
+                            key={amenity}
+                            onClick={() => toggleAmenity(amenity)}
+                            className={`cursor-pointer p-3 rounded-lg border-2 transition-all duration-200 text-center ${
+                              selectedAmenities.includes(amenity)
+                                ? "border-blue-500 bg-blue-50 text-blue-700"
+                                : "border-gray-200 hover:border-gray-300 text-gray-600"
+                            }`}
+                          >
+                            <span className="text-sm font-medium">
+                              {amenity}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <FormDescription className="text-xs text-gray-500">
+                        Click on amenities to select/deselect them
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
 
-            {/* Additional features */}
-            <div>
-              <Label className="text-base font-medium mb-3 block">
-                Additional Features
-              </Label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {propertyFeatures.map((feature) => (
-                  <div key={feature} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`feature-${feature}`}
-                      checked={selectedFeatures.includes(feature)}
-                      onCheckedChange={(checked) =>
-                        handleFeatureChange(feature, checked as boolean)
-                      }
+            {/* Utilities Card */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm  p-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-xl text-gray-800">
+                  <Zap className="h-5 w-5 mr-2 text-yellow-600" />
+                  Utilities Payment
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center mb-2">
+                      <Droplets className="h-4 w-4 mr-2 text-blue-500" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Water
+                      </span>
+                    </div>
+                    <SelectInput
+                      control={form.control}
+                      name="utilities.water"
+                      label=""
+                      placeholder="Select payment responsibility"
+                      options={utilityPaymentOptions}
                     />
-                    <Label
-                      htmlFor={`feature-${feature}`}
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      {feature}
-                    </Label>
                   </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                  <div className="space-y-2">
+                    <div className="flex items-center mb-2">
+                      <Zap className="h-4 w-4 mr-2 text-yellow-500" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Electricity
+                      </span>
+                    </div>
+                    <SelectInput
+                      control={form.control}
+                      name="utilities.electricity"
+                      label=""
+                      placeholder="Select payment responsibility"
+                      options={utilityPaymentOptions}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center mb-2">
+                      <Wifi className="h-4 w-4 mr-2 text-green-500" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Internet
+                      </span>
+                    </div>
+                    <SelectInput
+                      control={form.control}
+                      name="utilities.internet"
+                      label=""
+                      placeholder="Select payment responsibility"
+                      options={utilityPaymentOptions}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center mb-2">
+                      <Zap className="h-4 w-4 mr-2 text-orange-500" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Gas
+                      </span>
+                    </div>
+                    <SelectInput
+                      control={form.control}
+                      name="utilities.gas"
+                      label=""
+                      placeholder="Select payment responsibility"
+                      options={utilityPaymentOptions}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Images */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="h-5 w-5" />
-              Property Images
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Label htmlFor="images">Upload Property Images</Label>
-              <Input
-                id="images"
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={(e) => setImages(e.target.files)}
-                className="cursor-pointer"
-              />
-              <p className="text-sm text-gray-500">
-                Upload multiple images to showcase your property. First image
-                will be used as the main photo.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            {/* Media Card */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm  p-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-xl text-gray-800">
+                  <Camera className="h-5 w-5 mr-2 text-purple-600" />
+                  Property Images (Up to 6)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FormField
+                  control={form.control}
+                  name="images"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">
+                        Upload Images
+                      </FormLabel>
+                      <FormControl>
+                        <div className="space-y-4">
+                          {/* Upload Button */}
+                          <label className="cursor-pointer">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={handleImageUpload}
+                              className="hidden"
+                            />
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
+                              <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                              <p className="text-sm text-gray-600">
+                                Click to upload images or drag and drop
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                PNG, JPG, WebP up to 10MB each
+                              </p>
+                            </div>
+                          </label>
 
-        {/* Submit Button */}
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            size="lg"
-            className="px-8"
-            disabled={vpnDetected}
-          >
-            {watchListingType === "rent" ? "List for Rent" : "List for Sale"}
-          </Button>
-        </div>
-      </form>
-    </Form>
+                          {/* Image Preview Grid */}
+                          {uploadedImages.length > 0 && (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                              {uploadedImages.map((file, index) => (
+                                <div key={index} className="relative group">
+                                  <img
+                                    src={URL.createObjectURL(file)}
+                                    alt={`Upload ${index + 1}`}
+                                    className="w-full h-32 object-cover rounded-lg border"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeImage(index)}
+                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                  <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                    {file.name}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </FormControl>
+                      <FormDescription className="text-xs text-gray-500">
+                        Upload high-quality images to make your listing stand
+                        out. You can upload up to 6 images.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm p-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-xl text-gray-800">
+                  <Shield className="h-5 w-5 mr-2 text-indigo-600" />
+                  Home Rules (Optional)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FormField
+                  control={form.control}
+                  name="home_rules"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">
+                        Home Rules
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="No smoking indoors, no loud music after 10pm, etc."
+                          className="min-h-[100px] border-gray-200 focus:border-blue-500 focus:ring-blue-500 resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs text-gray-500">
+                        Optional rules for tenants/guests to follow
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Submit Button */}
+            <div className="flex justify-center pt-6">
+              <Button
+                disabled={isPending}
+                type="submit"
+                size="lg"
+                className="px-12 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              >
+                <Shield className="h-5 w-5 mr-2" />
+                Create Property Listing
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
+    </div>
   );
 };
 
-export default AddPropertyForm;
+export default Index;

@@ -44,10 +44,14 @@ export function AppSidebar() {
   };
   const adminItems = [
     { title: "Dashboard", url: "/", icon: Home },
-    { title: "All Homes", url: "/admin/homes", icon: Building },
-    { title: "Pending Approvals", url: "/admin/approvals", icon: CheckCircle },
-    { title: "Users", url: "/admin/users", icon: Users },
-    { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
+    { title: "All Homes", url: "/dashboard/homes", icon: Building },
+    {
+      title: "Pending Approvals",
+      url: "/dashboard/approvals",
+      icon: CheckCircle,
+    },
+    { title: "Users", url: "/dashboard/users", icon: Users },
+    { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
   ];
 
   const AgentItems = [
@@ -57,12 +61,11 @@ export function AppSidebar() {
       url: `dashboard/my-homes `,
       icon: Building,
     },
-    { title: "Add Property", url: "/homes/new", icon: PlusCircle },
+    { title: "Add Home", url: "/dashboard/add-home", icon: PlusCircle },
     { title: "QR Codes", url: "/qr-codes", icon: QrCode },
-    { title: "Analytics", url: "/analytics", icon: BarChart3 },
   ];
-
-  const items = user?.role === "agent" ? AgentItems : adminItems;
+  console.log("role", user?.role);
+  const items = user?.role.trim() === "agent" ? AgentItems : adminItems;
 
   return (
     <Sidebar className="w-64 z-50 bg-white border-r border-gray-200 shadow-sm">

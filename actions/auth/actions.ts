@@ -1,86 +1,56 @@
 "use server";
-import { CreateUserPayload, UserSyncPayload } from "../../types/user";
+import { CreateUserPayload, UserType } from "../../types/user";
 import { auth } from "../../lib/auth";
 import { redirect } from "next/navigation";
-
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
 import supabaseAdmin from "@/db/supabase-admin";
 
 export const signInwithTelegram = async (body: CreateUserPayload) => {
-  // 2. Prepare transformed body with correct types
   const transformedBody = {
     ...body,
     id: String(body.id),
     auth_date: String(body.auth_date),
   };
 
-  // 3. Call Telegram OAuth endpoint
   const session = await auth.api.telegramCallback({ body: transformedBody });
 
-  console.log(session);
+  const telegramId = session.user.email.split("#")[1];
+  if (!telegramId) throw new Error("Invalid Telegram ID");
 
-  // 4. Redirect if successful
-  if (session)
-    await syncUserWithSupabase({
-      telegram_id: session.user.email.split("#")[1],
+  const supabaseJWT = await generateSupabaseJWT(session.user);
+
+  const { error } = await supabaseAdmin.from("profiles").upsert(
+    {
+      telegram_id: telegramId,
+      username: session.user.username,
       role: session.user.role,
-    });
+      image: session.user.image,
+      name: session.user.name,
+    },
+    { onConflict: "telegram_id" }
+  );
+
+  if (error) throw new Error("Error creating user");
+
+  const cookieStore = await cookies();
+  cookieStore.set("supabase_auth_token", supabaseJWT, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    maxAge: 3600, // 1 hour
+  });
+
   redirect("/");
 };
 
-async function syncUserWithSupabase(payload: UserSyncPayload) {
-  try {
-    const { telegram_id, role } = payload;
-
-    const { error } = await supabaseAdmin.from("profiles").upsert({
-      telegram_id,
-      role,
-    });
-
-    if (error) {
-      console.error("Supabase upsert error:", error);
-      return { success: false, message: error.message };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("Unexpected error syncing user role:", error);
-    return { success: false, message: "Internal server error" };
-  }
-}
-
-export const signInwithTelegrammmm = async (body: CreateUserPayload) => {
-  // 1. Transform body and call your existing auth
-  const transformedBody = {
-    ...body,
-    id: String(body.id),
-    auth_date: String(body.auth_date),
+export async function generateSupabaseJWT(user: UserType) {
+  const payload = {
+    sub: user.email.split("#")[1], // Telegram user ID
+    role: "authenticated", // Required for Supabase RLS
+    app_metadata: { role: user.role, username: user.username },
+    exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
   };
-  const session = await auth.api.telegramCallback({ body: transformedBody });
-
-  // 2. Create/update Supabase user and mapping
-  const telegramUserId = transformedBody.id;
-
-  // Check if mapping exists
-  const { data: mapping } = await supabaseAdmin
-    .from("private.auth_mapping")
-    .select("supabase_user_id")
-    .eq("external_user_id", telegramUserId)
-    .single();
-
-  if (!mapping) {
-    // Create new Supabase user
-    const { data: user } = await supabaseAdmin.auth.admin.createUser({
-      email: `telegram.${telegramUserId}@example.com`,
-      email_confirm: true,
-      user_metadata: { telegram_id: telegramUserId },
-    });
-
-    // Create mapping
-    await supabaseAdmin.from("private.auth_mapping").insert({
-      external_user_id: telegramUserId,
-      supabase_user_id: user.user.id,
-    });
-  }
-
-  return { success: true };
-};
+  return jwt.sign(payload, process.env.SUPABASE_JWT_SECRET!);
+}
